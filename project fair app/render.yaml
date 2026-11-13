@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: projectexpert
+    env: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn backend.server:app
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: MYSQL_HOST
+        sync: false
+      - key: MYSQL_PORT
+        value: "3306"
+      - key: MYSQL_USER
+        sync: false
+      - key: MYSQL_PASSWORD
+        sync: false
+      - key: MYSQL_DATABASE
+        value: projectexpert
+      - key: MYSQL_USER_DATABASE
+        value: projectexpert
+      - key: MYSQL_ENGINEER_SIGNUP_DATABASE
+        value: projectexpert
+      - key: ALLOWED_ORIGINS
+        value: "https://your-netlify-site.netlify.app,http://localhost:3000,http://127.0.0.1:8000"

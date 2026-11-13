@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ProjectExpert | Hire people to build your project</title>
+    <meta
+      name="description"
+      content="ProjectExpert helps people hire skilled engineers and specialists fast while making Nigerian engineers visible to the world."
+    />
+    <meta name="theme-color" content="#06131f" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <link rel="stylesheet" href="styles.css?v=2026-11-12" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav">
+        <div class="brand">
+          <div class="brand-mark">P</div>
+          <span>ProjectExpert</span>
+        </div>
+
+        <nav class="tab-nav" aria-label="Main navigation">
+          <button class="tab-button active" data-tab="landing">Home</button>
+          <button class="tab-button" data-tab="build">Finished</button>
+          <button class="tab-button" data-tab="experts">Engineers</button>
+          <button class="tab-button" data-tab="requests">Requests</button>
+        </nav>
+
+        <div class="nav-actions">
+          <button class="btn btn-secondary login-trigger" data-tab="login">Log in</button>
+          <button class="btn btn-primary post-project-trigger" data-tab="requests">Create project</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section id="landing" class="tab-panel active">
+        <div class="container hero-block">
+          <div class="hero-copy">
+            <h1>Find expert engineers to help build your next project</h1>
+            <p>
+              From concept design and prototyping to testing, analysis, and technical execution, connect with specialists who can help you turn bold engineering ideas into real-world solutions.
+            </p>
+            <div class="hero-actions">
+              <button class="btn btn-primary post-project-trigger" data-tab="requests">Create project</button>
+              <button class="btn btn-secondary contact-engineer-trigger" data-tab="experts">Contact engineer</button>
+            </div>
+          </div>
+
+          <div class="showcase-card">
+            <div class="showcase-label">Featured builds</div>
+            <div class="portfolio-grid">
+              <article class="portfolio-card wide">
+                <img
+                  src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80"
+                  alt="Electronic engineering circuit board"
+                  width="800"
+                  height="520"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="card-caption">
+                  <strong>CircuitForge</strong>
+                  <span>Embedded systems design</span>
+                </div>
+              </article>
+
+              <article class="portfolio-card">
+                <img
+                  src="https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=800&q=80"
+                  alt="Electronic engineering prototype test"
+                  width="800"
+                  height="600"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="card-caption">
+                  <strong>SignalGrid</strong>
+                  <span>Electronics testing</span>
+                </div>
+              </article>
+
+              <article class="portfolio-card">
+                <img
+                  src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=800&q=80"
+                  alt="Electronic engineering lab hardware"
+                  width="800"
+                  height="600"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="card-caption">
+                  <strong>NovaBoard</strong>
+                  <span>Hardware and prototyping</span>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <div class="container">
+          <div class="google-ad-banner">
+            <div class="ad-label">Advertisement</div>
+            <ins
+              class="adsbygoogle"
+              style="display:block; width:100%; min-height:120px;"
+              data-ad-client="ca-pub-XXXXXXXXXXXXXX"
+              data-ad-slot="1234567890"
+              data-ad-format="auto"
+              data-full-width-responsive="true"
+            ></ins>
+          </div>
+        </div>
+
+        <div class="container home-feed-wrap">
+          <div class="home-feed-grid">
+            <div class="home-feed-column">
+              <div class="home-feed-header">
+                <span class="eyebrow">Latest projects</span>
+                <h3>Requests shared by users</h3>
+              </div>
+              <div id="homeProjectFeed" class="home-feed-list" aria-live="polite"></div>
+            </div>
+
+            <div class="home-feed-column">
+              <div class="home-feed-header">
+                <span class="eyebrow">Recent wins</span>
+                <h3>Finished builds from the community</h3>
+              </div>
+              <div id="homeFinishedFeed" class="home-feed-list" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="build" class="tab-panel">
+        <div class="container form-shell">
+          <div class="form-header">
+            <span class="eyebrow">Finished projects</span>
+            <h2>Users showcasing completed engineering work.</h2>
+          </div>
+
+          <button type="button" class="btn btn-primary finished-form-toggle" aria-expanded="false">Add finished project</button>
+
+          <form id="finishedProjectForm" class="questionnaire finished-project-form hidden" aria-live="polite">
+            <label>
+              Project name
+              <input id="finishedProjectName" type="text" placeholder="Example: Smart solar tracker" required />
+            </label>
+
+            <label>
+              Engineer name
+              <input id="finishedEngineerName" type="text" placeholder="Example: Amina Okafor" required />
+            </label>
+
+            <label>
+              Project description
+              <textarea id="finishedProjectDescription" rows="4" placeholder="Describe what was built and why it mattered..." required></textarea>
+            </label>
+
+            <div class="field-row">
+              <label>
+                Timeline
+                <input id="finishedProjectTimeline" type="text" placeholder="Example: Completed in 6 weeks" value="Completed in 6 weeks" required />
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label>
+                Project type
+                <select id="finishedProjectType">
+                  <option>Prototype</option>
+                  <option>Product design</option>
+                  <option>Testing</option>
+                  <option>Tech build</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Project image URL
+              <input id="finishedProjectImage" type="url" placeholder="https://example.com/project-image.jpg" required />
+            </label>
+
+            <div id="finishedProjectStatus" class="submission-status" aria-live="polite"></div>
+            <button type="submit" class="btn btn-primary submit-btn">Save finished project</button>
+          </form>
+
+          <div class="project-feed">
+            <div class="feed-header">
+              <span class="eyebrow">Recent results</span>
+              <h3>Projects delivered by experts and innovators</h3>
+            </div>
+            <div id="finishedProjectList" class="project-list" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="experts" class="tab-panel">
+        <div class="container experts-shell">
+          <div class="section-heading">
+            <span class="eyebrow">Top experts</span>
+            <h2>Engineers, researchers, and technical specialists.</h2>
+          </div>
+
+          <div class="engineer-toolbar">
+            <div class="search-box" role="search">
+              <input id="engineerSearch" type="search" placeholder="Search engineers by name or specialty" aria-label="Search engineers" />
+              <button type="button" class="btn btn-primary search-engineers-btn">Search</button>
+            </div>
+            <div class="engineer-type-filter">
+              <span>Engineer type</span>
+              <div class="engineer-type-panel">
+                <button id="engineerTypeToggle" type="button" class="engineer-type-toggle" aria-expanded="false" aria-haspopup="listbox">
+                  <span id="engineerTypeButtonLabel">All types</span>
+                  <span class="chevron" aria-hidden="true">▾</span>
+                </button>
+                <div id="engineerTypeMenu" class="engineer-type-menu" role="listbox" aria-label="Engineer type options" hidden></div>
+                <select id="engineerTypeFilter" class="engineer-type-select" aria-label="Filter by engineer type">
+                  <option value="all">All types</option>
+                  <option value="Electronics design specialist">Electronics design specialist</option>
+                  <option value="Embedded systems engineer">Embedded systems engineer</option>
+                  <option value="Research and prototyping lead">Research and prototyping lead</option>
+                  <option value="Hardware product engineer">Hardware product engineer</option>
+                  <option value="Mechatronics engineer">Mechatronics engineer</option>
+                  <option value="AI and automation specialist">AI and automation specialist</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary engineer-form-toggle" aria-expanded="false">Add profile</button>
+          </div>
+
+          <form id="engineerForm" class="questionnaire engineer-form hidden" aria-live="polite">
+            <label>
+              Engineer name
+              <input id="engineerName" type="text" placeholder="Example: Nneka Eze" required />
+            </label>
+
+            <label>
+              Specialty
+              <input id="engineerSpecialty" type="text" placeholder="Example: Embedded systems engineer" required />
+            </label>
+
+            <label>
+              School
+              <input id="engineerSchool" type="text" placeholder="Example: University of Lagos" required />
+            </label>
+
+            <label>
+              Bio
+              <textarea id="engineerBio" rows="4" placeholder="Tell people about the engineer's expertise and experience..." required></textarea>
+            </label>
+
+            <label>
+              Skills (comma separated)
+              <input id="engineerSkills" type="text" placeholder="Example: Firmware, IoT, PCB" required />
+            </label>
+
+            <div class="field-row">
+              <label>
+                WhatsApp number
+                <input id="engineerWhatsapp" type="tel" placeholder="Example: +2348012345678" required />
+              </label>
+
+              <label>
+                Skype username
+                <input id="engineerSkype" type="text" placeholder="Example: live:engineer1" required />
+              </label>
+            </div>
+
+            <label>
+              Phone number
+              <input id="engineerPhone" type="tel" placeholder="Example: +2348012345678" required />
+            </label>
+
+            <label>
+              Profile image URL
+              <input id="engineerImage" type="url" placeholder="https://example.com/engineer.jpg" required />
+            </label>
+
+            <div id="engineerStatus" class="submission-status" aria-live="polite"></div>
+            <button type="submit" class="btn btn-primary submit-btn">Save engineer</button>
+          </form>
+
+          <div class="experts-grid" id="expertGrid" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section id="requests" class="tab-panel">
+        <div class="container form-shell">
+          <div class="form-header">
+            <span class="eyebrow">Project brief</span>
+            <h2>Tell us about the engineering challenge you need help with.</h2>
+          </div>
+
+          <form id="projectForm" class="questionnaire">
+            <label>
+              Project name
+              <input id="projectName" type="text" placeholder="Example: Bio-sensor monitoring system" required />
+            </label>
+
+            <label>
+              What invention or engineering challenge are you solving?
+              <textarea id="projectDescription" rows="5" placeholder="Describe the problem, the technical concept, testing needs, materials or systems involved, and the outcome you want..." required></textarea>
+            </label>
+
+            <div class="field-row">
+              <label>
+                Timeline
+                <select id="projectTimeline">
+                  <option>2 weeks</option>
+                  <option>1 month</option>
+                  <option>2 months</option>
+                  <option>Flexible</option>
+                </select>
+              </label>
+
+              <label>
+                Budget
+                <input id="projectBudget" type="text" placeholder="Example: $1,500 - $3,000" required />
+              </label>
+            </div>
+
+            <div class="choice-section">
+              <span>Type of project</span>
+              <div class="choice-grid" role="group" aria-label="Project type">
+                <button type="button" class="choice-pill active">Prototype</button>
+                <button type="button" class="choice-pill">Product design</button>
+                <button type="button" class="choice-pill">Testing</button>
+                <button type="button" class="choice-pill">Tech build</button>
+              </div>
+            </div>
+
+            <div id="projectStatus" class="submission-status" aria-live="polite"></div>
+            <button type="submit" class="btn btn-primary submit-btn">Create project</button>
+          </form>
+
+          <div class="project-feed">
+            <div class="feed-header">
+              <span class="eyebrow">Recent posts</span>
+              <h3>Projects waiting for expert matches</h3>
+            </div>
+            <div id="projectList" class="project-list" aria-live="polite"></div>
+          </div>
+
+          <div class="project-feed">
+            <div class="feed-header">
+              <span class="eyebrow">Open requests</span>
+              <h2>Current engineering requests</h2>
+            </div>
+
+            <div class="project-list">
+              <article class="request-card posted-project-card" data-whatsapp="+2348012345678" data-skype="live:projectexpert1">
+                <div class="posted-project-top">
+                  <strong>Solar-powered cold storage</strong>
+                  <span>Prototype</span>
+                </div>
+                <p>Need a compact energy-efficient refrigeration prototype for remote clinics and small food businesses.</p>
+                <div class="project-meta">
+                  <span>2 months</span>
+                  <span class="project-taken-count">8 engineers taken</span>
+                </div>
+                <div class="request-contact">
+                  <a href="https://wa.me/2348012345678" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                  <a href="skype:live:projectexpert1?call" target="_blank" rel="noopener noreferrer">Skype video call</a>
+                </div>
+              </article>
+
+              <article class="request-card posted-project-card" data-whatsapp="+2348023456789" data-skype="live:projectexpert2">
+                <div class="posted-project-top">
+                  <strong>Smart irrigation sensor</strong>
+                  <span>Testing</span>
+                </div>
+                <p>Looking for a durable low-cost moisture monitoring system for small farms with field alerts.</p>
+                <div class="project-meta">
+                  <span>Flexible</span>
+                  <span class="project-taken-count">6 engineers taken</span>
+                </div>
+                <div class="request-contact">
+                  <a href="https://wa.me/2348023456789" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                  <a href="skype:live:projectexpert2?call" target="_blank" rel="noopener noreferrer">Skype video call</a>
+                </div>
+              </article>
+
+              <article class="request-card posted-project-card" data-whatsapp="+2348034567890" data-skype="live:projectexpert3">
+                <div class="posted-project-top">
+                  <strong>Portable battery module</strong>
+                  <span>Tech build</span>
+                </div>
+                <p>Designing a mobile battery pack for powering research devices in rural testing sites.</p>
+                <div class="project-meta">
+                  <span>1 month</span>
+                  <span class="project-taken-count">5 engineers taken</span>
+                </div>
+                <div class="request-contact">
+                  <a href="https://wa.me/2348034567890" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                  <a href="skype:live:projectexpert3?call" target="_blank" rel="noopener noreferrer">Skype video call</a>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="login" class="tab-panel">
+        <div class="container login-shell">
+          <div class="login-card">
+            <div class="login-copy">
+              <span class="eyebrow">Welcome back</span>
+              <h2>Sign in to manage your projects and expert matches.</h2>
+              <p>
+                Track your invention ideas, review proposals, and stay connected with engineers and specialists who can help bring your concept to life.
+              </p>
+            </div>
+
+            <form class="login-form">
+              <label>
+                Email address
+                <input type="email" placeholder="you@example.com" />
+              </label>
+
+              <label>
+                Password
+                <input type="password" placeholder="Enter your password" />
+              </label>
+
+              <div class="login-meta">
+                <label class="remember-me">
+                  <input type="checkbox" />
+                  <span>Remember me</span>
+                </label>
+                <a href="#">Forgot password?</a>
+              </div>
+
+              <button type="submit" class="btn btn-primary submit-btn">Sign in</button>
+
+              <div class="login-divider"><span>or</span></div>
+
+              <button type="button" class="btn btn-secondary social-btn">Continue with Google</button>
+
+              <p class="signup-link">New here? <a href="#">Create an account</a></p>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="about" class="container about-section">
+        <div class="about-card">
+          <span class="eyebrow">About ProjectExpert</span>
+          <h2>We connect bold ideas with the engineers who can turn them into reality.</h2>
+          <p>
+            ProjectExpert is a digital marketplace for engineering innovation. It helps inventors, startups, students, and businesses share project challenges, connect with experienced specialists, and discover proven work from completed builds.
+          </p>
+          <p>
+            The platform brings together project requests, expert profiles, and finished engineering work in one place, making it easier to find the right technical talent, discuss ideas, and move from concept to execution faster.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-wrap">
+        <div class="brand">
+          <div class="brand-mark">P</div>
+          <span>ProjectExpert</span>
+        </div>
+        <div class="footer-links">
+          <a href="#about">About</a>
+          <a href="#">Projects</a>
+          <a href="#">Experts</a>
+          <a href="#">Contact</a>
+        </div>
+      </div>
+    </footer>
+
+    <div class="container">
+      <div class="google-ad-banner google-ad-banner--compact">
+        <div class="ad-label">Sponsored</div>
+        <ins
+          class="adsbygoogle"
+          style="display:block; width:100%; min-height:90px;"
+          data-ad-client="ca-pub-XXXXXXXXXXXXXX"
+          data-ad-slot="0987654321"
+          data-ad-format="auto"
+          data-full-width-responsive="true"
+        ></ins>
+      </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+      window.API_BASE_URL = window.API_BASE_URL || window.PROJECTEXPERT_CONFIG?.API_BASE_URL || '';
+      window.GOOGLE_ADS_CLIENT_ID = 'ca-pub-XXXXXXXXXXXXXX';
+
+      if (window.GOOGLE_ADS_CLIENT_ID && !window.GOOGLE_ADS_CLIENT_ID.includes('XXXXXXXX')) {
+        const adsScript = document.createElement('script');
+        adsScript.async = true;
+        adsScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + window.GOOGLE_ADS_CLIENT_ID;
+        adsScript.crossOrigin = 'anonymous';
+        document.head.appendChild(adsScript);
+        window.adsbygoogle = window.adsbygoogle || [];
+        window.adsbygoogle.push({});
+      }
+    </script>
+
+    <script src="script.js?v=2026-11-12"></script>
+  </body>
+</html>
