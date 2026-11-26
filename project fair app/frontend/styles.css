@@ -606,6 +606,34 @@ a {
   height: 220px;
   object-fit: cover;
 }
+.delete-project-btn,
+.delete-finished-btn,
+.delete-engineer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  margin-left: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid rgba(249, 112, 102, 0.45);
+  border-radius: 20px;
+  background: rgba(249, 112, 102, 0.14);
+  color: #ffb4b4;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.delete-project-btn:hover,
+.delete-finished-btn:hover,
+.delete-engineer-btn:hover {
+  transform: translateY(-1px);
+  border-color: #f97066;
+  background: rgba(249, 112, 102, 0.26);
+  color: #ffffff;
+}
+
 
 .request-card {
   cursor: pointer;
