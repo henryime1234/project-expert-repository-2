@@ -20,6 +20,20 @@ const requestCards = document.querySelectorAll('.request-card');
 const storageKey = 'projectExpertPosts';
 const finishedStorageKey = 'projectExpertFinished';
 const engineerStorageKey = 'projectExpertEngineers';
+const ownerStorageKey = 'projectExpertOwnerId';
+
+const getCurrentOwnerId = () => {
+  let ownerId = localStorage.getItem(ownerStorageKey);
+  if (!ownerId) {
+    ownerId = `owner_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(ownerStorageKey, ownerId);
+  }
+  return ownerId;
+};
+
+const isOwnedByCurrentUser = (item) =>
+  Boolean(item && item.ownerId && item.ownerId === getCurrentOwnerId());
+
 const API_BASE_URL = window.API_BASE_URL || '';
 const buildApiUrl = (path) => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
@@ -36,7 +50,7 @@ const defaultFinishedProjects = [
     type: 'Product design',
     engineer: 'Amina Okafor',
     image:
-      'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1000&q=80',
+      'https://unsplash.com',
   },
   {
     name: 'Portable lab analyzer',
@@ -45,7 +59,7 @@ const defaultFinishedProjects = [
     type: 'Prototype',
     engineer: 'Chinedu Adebayo',
     image:
-      'https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=1000&q=80',
+      'https://unsplash.com',
   },
   {
     name: 'Battery health monitor',
@@ -54,7 +68,7 @@ const defaultFinishedProjects = [
     type: 'Tech build',
     engineer: 'Tosin Adeyemi',
     image:
-      'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1000&q=80',
+      'https://unsplash.com',
   },
 ];
 
@@ -126,7 +140,6 @@ const defaultEngineers = [
     image: 'images/invent 1.jpg',
   },
 ];
-
 const activateTab = (selectedTab) => {
   tabButtons.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === selectedTab));
   panels.forEach((panel) => panel.classList.toggle('active', panel.id === selectedTab));
@@ -155,9 +168,31 @@ const saveProjects = (projects) => {
   localStorage.setItem(storageKey, JSON.stringify(projects));
 };
 
+const deleteProject = (projectName) => {
+  const updated = readProjects().filter(
+    (item) => !(item.name === projectName && isOwnedByCurrentUser(item))
+  );
+  saveProjects(updated);
+  renderProjects();
+  renderHomeFeed();
+};
+
+const attachProjectDeleteHandlers = (root) => {
+  if (!root) return;
+  root.querySelectorAll('.delete-project-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteProject(btn.dataset.name);
+    });
+  });
+};
+
 const buildRequestCard = (project) => {
   const engineerCount = getEngineerCount(project);
   const engineerLabel = `${engineerCount} engineer${engineerCount === 1 ? '' : 's'} taken`;
+  const deleteBtn = isOwnedByCurrentUser(project)
+    ? `<button type="button" class="delete-project-btn" data-name="${escapeHtml(project.name || '')}">Delete</button>`
+    : '';
 
   return `
     <article class="request-card posted-project-card ${project.expanded ? 'expanded' : ''}" data-whatsapp="${project.whatsapp || ''}" data-skype="${project.skype || ''}">
@@ -172,9 +207,10 @@ const buildRequestCard = (project) => {
         <span class="project-taken-count">${engineerLabel}</span>
       </div>
       <div class="request-contact">
-        <a href="https://wa.me/${(project.whatsapp || '').replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+        <a href="https://wa.me{(project.whatsapp || '').replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
         <a href="skype:${project.skype || 'live:projectexpert'}?call" target="_blank" rel="noopener noreferrer">Skype video call</a>
       </div>
+      ${deleteBtn}
     </article>
   `;
 };
@@ -198,7 +234,6 @@ const saveFinishedProjects = (projects) => {
 
 const renderProjects = () => {
   if (!projectList) return;
-
   const projects = readProjects();
 
   if (!projects.length) {
@@ -212,6 +247,9 @@ const renderProjects = () => {
     .map((project) => {
       const engineerCount = getEngineerCount(project);
       const engineerLabel = `${engineerCount} engineer${engineerCount === 1 ? '' : 's'} taken`;
+      const deleteBtn = isOwnedByCurrentUser(project)
+        ? `<button type="button" class="delete-project-btn" data-name="${escapeHtml(project.name || '')}">Delete</button>`
+        : '';
 
       return `
         <article class="posted-project-card">
@@ -225,10 +263,13 @@ const renderProjects = () => {
             <span>${project.budget || 'Budget available'}</span>
             <span class="project-taken-count">${engineerLabel}</span>
           </div>
+          ${deleteBtn}
         </article>
       `;
     })
     .join('');
+
+  attachProjectDeleteHandlers(projectList);
 };
 
 /* --- Finished project likes, engineer click counts, and remove-photo --- */
@@ -242,7 +283,6 @@ const escapeHtml = (value) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-
 const readFinishedLikes = () => {
   try {
     const saved = JSON.parse(localStorage.getItem(finishedLikesStorageKey) || '{}');
@@ -277,8 +317,11 @@ const buildFinishedProjectLikeButton = (project) => {
     </button>
   `;
 };
+
 const deleteFinishedProject = (projectName) => {
-  const updated = readFinishedProjects().filter((item) => item.name !== projectName);
+  const updated = readFinishedProjects().filter(
+    (item) => !(item.name === projectName && isOwnedByCurrentUser(item))
+  );
   saveFinishedProjects(updated);
   renderFinishedProjects();
   renderHomeFeed();
@@ -293,7 +336,6 @@ const attachFinishedDeleteHandlers = (root) => {
     });
   });
 };
-
 const attachFinishedProjectLikeHandlers = (root) => {
   if (!root) return;
   root.querySelectorAll('.finished-project-like').forEach((button) => {
@@ -345,7 +387,6 @@ const getEngineerClicks = (engineer) => {
   const clicks = Number(readEngineerClicks()[engineer.name]);
   return Number.isFinite(clicks) && clicks > 0 ? clicks : 0;
 };
-
 const recordEngineerClick = (name) => {
   const clicks = readEngineerClicks();
   const count = (Number(clicks[name]) || 0) + 1;
@@ -373,6 +414,35 @@ const attachEngineerRemovePhotoHandlers = async (root) => {
   });
 };
 
+const deleteEngineer = async (engineerName) => {
+  const saved = JSON.parse(localStorage.getItem(engineerStorageKey) || '[]');
+  const target = saved.find((item) => item.name === engineerName && isOwnedByCurrentUser(item));
+  if (!target) return;
+
+  const updatedLocal = saved.filter((item) => !(item.name === engineerName && isOwnedByCurrentUser(item)));
+  localStorage.setItem(engineerStorageKey, JSON.stringify(updatedLocal));
+
+  try {
+    await fetch(`${engineerApiUrl}/${encodeURIComponent(engineerName)}`, {
+      method: 'DELETE',
+    });
+  } catch (err) {
+    // Ignore if offline or endpoint not implemented
+  }
+
+  await renderEngineers();
+  renderHomeEngineers();
+};
+
+const attachEngineerDeleteHandlers = (root) => {
+  if (!root) return;
+  root.querySelectorAll('.delete-engineer-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await deleteEngineer(btn.dataset.name);
+    });
+  });
+};
 const renderHomeFeed = () => {
   const homeProjectFeed = document.getElementById('homeProjectFeed');
   const homeFinishedFeed = document.getElementById('homeFinishedFeed');
@@ -400,7 +470,7 @@ const renderHomeFeed = () => {
             (project) => `
               <article class="posted-project-card finished-project-card">
                 <div class="finished-project-visual">
-                  <img src="${project.image || 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1000&q=80'}" alt="${project.name}" loading="lazy" decoding="async" />
+                  <img src="${project.image || 'https://unsplash.com'}" alt="${project.name}" loading="lazy" decoding="async" />
                 </div>
                 <div class="posted-project-top">
                   <strong>${project.name}</strong>
@@ -413,6 +483,7 @@ const renderHomeFeed = () => {
                 </div>
                 ${project.image && project.image.startsWith('data:') ? buildFinishedProjectRemovePhotoButton(project) : ''}
                 ${buildFinishedProjectLikeButton(project)}
+                ${isOwnedByCurrentUser(project) ? `<button type="button" class="delete-finished-btn" data-name="${escapeHtml(project.name || '')}">Delete</button>` : ''}
               </article>
             `
           )
@@ -426,9 +497,10 @@ const renderHomeFeed = () => {
       card.classList.toggle('expanded');
     });
   }
-
+  attachProjectDeleteHandlers(homeProjectFeed);
   attachFinishedProjectLikeHandlers(homeFinishedFeed);
   attachFinishedProjectRemovePhotoHandlers(homeFinishedFeed);
+  attachFinishedDeleteHandlers(homeFinishedFeed);
 };
 
 const renderFinishedProjects = () => {
@@ -443,7 +515,7 @@ const renderFinishedProjects = () => {
       (project) => `
         <article class="posted-project-card finished-project-card">
           <div class="finished-project-visual">
-            <img src="${project.image || 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1000&q=80'}" alt="${project.name}" loading="lazy" decoding="async" />
+            <img src="${project.image || 'https://unsplash.com'}" alt="${project.name}" loading="lazy" decoding="async" />
           </div>
           <div class="posted-project-top">
             <strong>${project.name}</strong>
@@ -456,12 +528,14 @@ const renderFinishedProjects = () => {
           </div>
           ${project.image && project.image.startsWith('data:') ? buildFinishedProjectRemovePhotoButton(project) : ''}
           ${buildFinishedProjectLikeButton(project)}
+          ${isOwnedByCurrentUser(project) ? `<button type="button" class="delete-finished-btn" data-name="${escapeHtml(project.name || '')}">Delete</button>` : ''}
         </article>
       `
     )
     .join('');
   attachFinishedProjectLikeHandlers(finishedProjectList);
   attachFinishedProjectRemovePhotoHandlers(finishedProjectList);
+  attachFinishedDeleteHandlers(finishedProjectList);
 };
 
 const readEngineers = async () => {
@@ -477,7 +551,11 @@ const readEngineers = async () => {
           const key = `${engineer.name || 'unknown'}|${engineer.specialty || engineer.bio || ''}`.toLowerCase();
           if (!seen.has(key)) {
             seen.add(key);
-            unique.push(engineer);
+            const localSaved = JSON.parse(localStorage.getItem(engineerStorageKey) || '[]');
+            const localMatch = Array.isArray(localSaved)
+              ? localSaved.find((item) => item.name === engineer.name && item.specialty === engineer.specialty)
+              : null;
+            unique.push(localMatch?.ownerId ? { ...engineer, ownerId: localMatch.ownerId } : engineer);
           }
         }
 
@@ -528,7 +606,6 @@ const saveEngineers = async (engineers) => {
 
   localStorage.setItem(engineerStorageKey, JSON.stringify(customOnly));
 };
-
 const syncEngineerTypeButtons = (selectedType = 'all') => {
   const typeButtons = document.querySelectorAll('.type-option');
   const normalizedSelection = selectedType || 'all';
@@ -636,6 +713,7 @@ const buildExpertCard = (engineer) => `
       <p>${engineer.specialty || engineer.bio || 'Engineering specialist'}</p>
       <p class="engineer-clicks">Clicks: ${getEngineerClicks(engineer)}</p>
       ${engineer.image && engineer.image.startsWith('data:') ? buildEngineerRemovePhotoButton(engineer) : ''}
+      ${isOwnedByCurrentUser(engineer) ? `<button type="button" class="delete-engineer-btn" data-name="${escapeHtml(engineer.name || '')}">Delete</button>` : ''}
       <div class="skill-tags">
         ${(engineer.skills || []).map((skill) => `<span>${skill}</span>`).join('')}
       </div>
@@ -643,7 +721,7 @@ const buildExpertCard = (engineer) => `
       <div class="expert-contact">
         <span>Contact ${engineer.name}</span>
         <div class="expert-contact-actions">
-          <a href="https://wa.me/${(engineer.whatsapp || '').replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+          <a href="https://wa.me{(engineer.whatsapp || '').replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
           <a href="skype:${engineer.skype || 'live:projectexpert'}?call" target="_blank" rel="noopener noreferrer">Skype</a>
           <a href="tel:${(engineer.phone || engineer.whatsapp || '').replace(/\s+/g, '')}" target="_blank" rel="noopener noreferrer">Call</a>
         </div>
@@ -675,7 +753,6 @@ const renderEngineers = async (query = '', selectedType = 'all') => {
     expertGrid.innerHTML = '<div class="empty-projects">No engineers match your search.</div>';
     return;
   }
-
   expertGrid.innerHTML = filteredEngineers.slice().reverse().map((engineer) => buildExpertCard(engineer)).join('');
 
   const expertCards = document.querySelectorAll('.expert-card');
@@ -691,6 +768,7 @@ const renderEngineers = async (query = '', selectedType = 'all') => {
     });
   });
   attachEngineerRemovePhotoHandlers(expertGrid);
+  attachEngineerDeleteHandlers(expertGrid);
 };
 
 const readFileAsDataUrl = (file) =>
@@ -747,6 +825,7 @@ if (finishedProjectForm) {
       timeline,
       type,
       image,
+      ownerId: getCurrentOwnerId(),
     });
 
     saveFinishedProjects(projects);
@@ -774,7 +853,6 @@ if (engineerFormToggle && engineerForm) {
     engineerFormToggle.textContent = isHidden ? 'Add profile' : 'Close form';
   });
 }
-
 const engineerImageInput = document.getElementById('engineerImage');
 const engineerRemoveImageBtn = document.getElementById('engineerRemoveImage');
 
@@ -824,10 +902,11 @@ if (engineerForm) {
       skype,
       phone,
       image,
+      ownerId: getCurrentOwnerId(),
     });
-
     await saveEngineers(engineers);
     await renderEngineers();
+    renderHomeEngineers();
 
     if (engineerStatus) {
       engineerStatus.textContent = 'Engineer saved successfully.';
@@ -925,6 +1004,7 @@ if (projectForm) {
       budget,
       type: getSelectedProjectType(),
       engineerCount: 0,
+      ownerId: getCurrentOwnerId(),
     });
 
     saveProjects(projects);
@@ -979,6 +1059,7 @@ const renderHomeEngineers = () => {
     });
 
     attachEngineerRemovePhotoHandlers(homeExpertsGrid);
+    attachEngineerDeleteHandlers(homeExpertsGrid);
   });
 };
 
