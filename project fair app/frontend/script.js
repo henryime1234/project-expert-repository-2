@@ -277,6 +277,22 @@ const buildFinishedProjectLikeButton = (project) => {
     </button>
   `;
 };
+const deleteFinishedProject = (projectName) => {
+  const updated = readFinishedProjects().filter((item) => item.name !== projectName);
+  saveFinishedProjects(updated);
+  renderFinishedProjects();
+  renderHomeFeed();
+};
+
+const attachFinishedDeleteHandlers = (root) => {
+  if (!root) return;
+  root.querySelectorAll('.delete-finished-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteFinishedProject(btn.dataset.name);
+    });
+  });
+};
 
 const attachFinishedProjectLikeHandlers = (root) => {
   if (!root) return;
