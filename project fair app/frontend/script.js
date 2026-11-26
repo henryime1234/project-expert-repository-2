@@ -1069,3 +1069,6 @@ populateEngineerTypeOptions();
 renderEngineers();
 renderHomeFeed();
 renderHomeEngineers();
+
+saveFinishedProjects(readFinishedProjects().filter(p => (p.engineer || '').toLowerCase() !== 'ime ahenry')); renderFinishedProjects(); renderHomeFeed();
+
