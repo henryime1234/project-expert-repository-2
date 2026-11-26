@@ -1070,5 +1070,6 @@ renderEngineers();
 renderHomeFeed();
 renderHomeEngineers();
 
-saveFinishedProjects(readFinishedProjects().filter(p => (p.engineer || '').toLowerCase() !== 'ime ahenry')); renderFinishedProjects(); renderHomeFeed();
+saveFinishedProjects(readFinishedProjects().filter(p => (p.name || '').toLowerCase() !== 'smart lighting project' && (p.engineer || '').toLowerCase() !== 'ime henry')); renderFinishedProjects(); renderHomeFeed();
+
 
