@@ -21,6 +21,12 @@ const storageKey = 'projectExpertPosts';
 const finishedStorageKey = 'projectExpertFinished';
 const engineerStorageKey = 'projectExpertEngineers';
 const ownerStorageKey = 'projectExpertOwnerId';
+const userSessionKey = 'projectExpertUser';
+const finishedLikesStorageKey = 'projectExpertFinishedLikes';
+const engineerClicksStorageKey = 'projectExpertEngineerClicks';
+
+const FALLBACK_IMAGE =
+  'https://unsplash.com';
 
 const getCurrentOwnerId = () => {
   let ownerId = localStorage.getItem(ownerStorageKey);
@@ -40,38 +46,56 @@ const buildApiUrl = (path) => {
   if (!API_BASE_URL) return normalizedPath;
   return `${API_BASE_URL.replace(/\/+$/, '')}${normalizedPath}`;
 };
+
 const engineerApiUrl = buildApiUrl('/api/engineers');
+const projectsApiUrl = buildApiUrl('/api/projects');
+const finishedApiUrl = buildApiUrl('/api/finished-projects');
+const loginApiUrl = buildApiUrl('/api/login');
+const usersApiUrl = buildApiUrl('/api/users');
+
+const escapeHtml = (value) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 const defaultFinishedProjects = [
   {
     name: 'Solar irrigation controller',
-    description: 'A smart water-saving control system built for remote farmland with automated pump timing and sensor-based alerts.',
+    description:
+      'A smart water-saving control system built for remote farmland with automated pump timing and sensor-based alerts.',
     timeline: 'Completed in 6 weeks',
     type: 'Product design',
     engineer: 'Amina Okafor',
     image:
       'https://unsplash.com',
+    likes: 0,
   },
   {
     name: 'Portable lab analyzer',
-    description: 'A compact diagnostic device for field testing and rapid measurements in science and engineering labs.',
+    description:
+      'A compact diagnostic device for field testing and rapid measurements in science and engineering labs.',
     timeline: 'Completed in 8 weeks',
     type: 'Prototype',
     engineer: 'Chinedu Adebayo',
     image:
       'https://unsplash.com',
+    likes: 0,
   },
   {
     name: 'Battery health monitor',
-    description: 'A lightweight monitoring system for industrial battery packs used in research and prototype validation.',
+    description:
+      'A lightweight monitoring system for industrial battery packs used in research and prototype validation.',
     timeline: 'Completed in 4 weeks',
     type: 'Tech build',
     engineer: 'Tosin Adeyemi',
     image:
       'https://unsplash.com',
+    likes: 0,
   },
 ];
-
 const defaultEngineers = [
   {
     name: 'Amina Okafor',
@@ -140,6 +164,7 @@ const defaultEngineers = [
     image: 'images/invent 1.jpg',
   },
 ];
+
 const activateTab = (selectedTab) => {
   tabButtons.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === selectedTab));
   panels.forEach((panel) => panel.classList.toggle('active', panel.id === selectedTab));
@@ -155,7 +180,22 @@ const getEngineerCount = (project) => {
   return Number.isFinite(count) && count > 0 ? count : 0;
 };
 
-const readProjects = () => {
+/* --- Open Project Requests (API + Local Fallback) --- */
+
+const readProjects = async () => {
+  try {
+    const response = await fetch(projectsApiUrl, { headers: { Accept: 'application/json' } });
+    if (response.ok) {
+      const remote = await response.json();
+      if (Array.isArray(remote)) {
+        localStorage.setItem(storageKey, JSON.stringify(remote));
+        return remote;
+      }
+    }
+  } catch {
+    // Fallback to localStorage below
+  }
+
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
     return Array.isArray(saved) ? saved : [];
@@ -163,26 +203,50 @@ const readProjects = () => {
     return [];
   }
 };
+const createProjectRecord = async (project) => {
+  try {
+    const response = await fetch(projectsApiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(project),
+    });
+    if (response.ok) {
+      const result = await response.json();
+      project.id = result.id;
+    }
+  } catch {
+    // Offline fallback
+  }
 
-const saveProjects = (projects) => {
-  localStorage.setItem(storageKey, JSON.stringify(projects));
+  const local = JSON.parse(localStorage.getItem(storageKey) || '[]');
+  local.push(project);
+  localStorage.setItem(storageKey, JSON.stringify(local));
 };
 
-const deleteProject = (projectName) => {
-  const updated = readProjects().filter(
+const deleteProject = async (projectName, projectId) => {
+  if (projectId) {
+    try {
+      await fetch(`${projectsApiUrl}/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+    } catch {
+      // Ignore if offline
+    }
+  }
+
+  const local = JSON.parse(localStorage.getItem(storageKey) || '[]');
+  const updated = local.filter(
     (item) => !(item.name === projectName && isOwnedByCurrentUser(item))
   );
-  saveProjects(updated);
-  renderProjects();
-  renderHomeFeed();
+  localStorage.setItem(storageKey, JSON.stringify(updated));
+  await renderProjects();
+  await renderHomeFeed();
 };
 
 const attachProjectDeleteHandlers = (root) => {
   if (!root) return;
   root.querySelectorAll('.delete-project-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      deleteProject(btn.dataset.name);
+      await deleteProject(btn.dataset.name, btn.dataset.id);
     });
   });
 };
@@ -191,31 +255,89 @@ const buildRequestCard = (project) => {
   const engineerCount = getEngineerCount(project);
   const engineerLabel = `${engineerCount} engineer${engineerCount === 1 ? '' : 's'} taken`;
   const deleteBtn = isOwnedByCurrentUser(project)
-    ? `<button type="button" class="delete-project-btn" data-name="${escapeHtml(project.name || '')}">Delete</button>`
+    ? `<button type="button" class="delete-project-btn" data-id="${escapeHtml(project.id || '')}" data-name="${escapeHtml(project.name || '')}">Delete</button>`
     : '';
+  const whatsappDigits = (project.whatsapp || '').replace(/\D/g, '');
+  const whatsappHref = whatsappDigits ? `https://wa.me{whatsappDigits}` : 'https://wa.me';
 
   return `
-    <article class="request-card posted-project-card ${project.expanded ? 'expanded' : ''}" data-whatsapp="${project.whatsapp || ''}" data-skype="${project.skype || ''}">
+    <article class="request-card posted-project-card ${project.expanded ? 'expanded' : ''}" data-whatsapp="${escapeHtml(project.whatsapp || '')}" data-skype="${escapeHtml(project.skype || '')}">
       <div class="posted-project-top">
-        <strong>${project.name}</strong>
-        <span>${project.type || 'Project'}</span>
+        <strong>${escapeHtml(project.name)}</strong>
+        <span>${escapeHtml(project.type || 'Project')}</span>
       </div>
-      <p>${project.description}</p>
+      <p>${escapeHtml(project.description)}</p>
       <div class="project-meta">
-        <span>${project.timeline || 'Flexible'}</span>
-        <span>${project.budget || 'Budget available'}</span>
+        <span>${escapeHtml(project.timeline || 'Flexible')}</span>
+        <span>${escapeHtml(project.budget || 'Budget available')}</span>
         <span class="project-taken-count">${engineerLabel}</span>
       </div>
       <div class="request-contact">
-        <a href="https://wa.me{(project.whatsapp || '').replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-        <a href="skype:${project.skype || 'live:projectexpert'}?call" target="_blank" rel="noopener noreferrer">Skype video call</a>
+        <a href="${whatsappHref}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+        <a href="skype:${encodeURIComponent(project.skype || 'live:projectexpert')}?call" target="_blank" rel="noopener noreferrer">Skype video call</a>
       </div>
       ${deleteBtn}
     </article>
   `;
 };
 
-const readFinishedProjects = () => {
+const renderProjects = async () => {
+  if (!projectList) return;
+  const projects = await readProjects();
+
+  if (!projects.length) {
+    projectList.innerHTML =
+      '<div class="empty-projects">No projects posted yet. Submit your first engineering challenge above.</div>';
+    return;
+  }
+
+  projectList.innerHTML = projects
+    .slice()
+    .reverse()
+    .map((project) => {
+      const engineerCount = getEngineerCount(project);
+      const engineerLabel = `${engineerCount} engineer${engineerCount === 1 ? '' : 's'} taken`;
+      const deleteBtn = isOwnedByCurrentUser(project)
+        ? `<button type="button" class="delete-project-btn" data-id="${escapeHtml(project.id || '')}" data-name="${escapeHtml(project.name || '')}">Delete</button>`
+        : '';
+
+      return `
+        <article class="posted-project-card">
+          <div class="posted-project-top">
+            <strong>${escapeHtml(project.name)}</strong>
+            <span>${escapeHtml(project.type)}</span>
+          </div>
+          <p>${escapeHtml(project.description)}</p>
+          <div class="project-meta">
+            <span>${escapeHtml(project.timeline)}</span>
+            <span>${escapeHtml(project.budget || 'Budget available')}</span>
+            <span class="project-taken-count">${engineerLabel}</span>
+          </div>
+          ${deleteBtn}
+        </article>
+      `;
+    })
+    .join('');
+
+  attachProjectDeleteHandlers(projectList);
+};
+
+/* --- Finished Projects (API + Local Fallback) --- */
+
+const readFinishedProjects = async () => {
+  try {
+    const response = await fetch(finishedApiUrl, { headers: { Accept: 'application/json' } });
+    if (response.ok) {
+      const remote = await response.json();
+      if (Array.isArray(remote) && remote.length) {
+        localStorage.setItem(finishedStorageKey, JSON.stringify(remote));
+        return remote;
+      }
+    }
+  } catch {
+    // Fallback to localStorage below
+  }
+
   try {
     const saved = JSON.parse(localStorage.getItem(finishedStorageKey) || 'null');
     if (Array.isArray(saved) && saved.length) {
@@ -228,61 +350,10 @@ const readFinishedProjects = () => {
   return defaultFinishedProjects;
 };
 
-const saveFinishedProjects = (projects) => {
+const saveFinishedProjectsLocal = (projects) => {
   localStorage.setItem(finishedStorageKey, JSON.stringify(projects));
 };
 
-const renderProjects = () => {
-  if (!projectList) return;
-  const projects = readProjects();
-
-  if (!projects.length) {
-    projectList.innerHTML = '<div class="empty-projects">No projects posted yet. Submit your first engineering challenge above.</div>';
-    return;
-  }
-
-  projectList.innerHTML = projects
-    .slice()
-    .reverse()
-    .map((project) => {
-      const engineerCount = getEngineerCount(project);
-      const engineerLabel = `${engineerCount} engineer${engineerCount === 1 ? '' : 's'} taken`;
-      const deleteBtn = isOwnedByCurrentUser(project)
-        ? `<button type="button" class="delete-project-btn" data-name="${escapeHtml(project.name || '')}">Delete</button>`
-        : '';
-
-      return `
-        <article class="posted-project-card">
-          <div class="posted-project-top">
-            <strong>${project.name}</strong>
-            <span>${project.type}</span>
-          </div>
-          <p>${project.description}</p>
-          <div class="project-meta">
-            <span>${project.timeline}</span>
-            <span>${project.budget || 'Budget available'}</span>
-            <span class="project-taken-count">${engineerLabel}</span>
-          </div>
-          ${deleteBtn}
-        </article>
-      `;
-    })
-    .join('');
-
-  attachProjectDeleteHandlers(projectList);
-};
-
-/* --- Finished project likes, engineer click counts, and remove-photo --- */
-const finishedLikesStorageKey = 'projectExpertFinishedLikes';
-const engineerClicksStorageKey = 'projectExpertEngineerClicks';
-
-const escapeHtml = (value) =>
-  String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 const readFinishedLikes = () => {
   try {
     const saved = JSON.parse(localStorage.getItem(finishedLikesStorageKey) || '{}');
@@ -291,20 +362,28 @@ const readFinishedLikes = () => {
     return {};
   }
 };
-
 const saveFinishedLikes = (likes) => {
   localStorage.setItem(finishedLikesStorageKey, JSON.stringify(likes));
 };
 
 const getFinishedLikes = (project) => {
-  const likes = Number(readFinishedLikes()[project.name]);
-  return Number.isFinite(likes) && likes > 0 ? likes : 0;
+  const remoteLikes = Number(project.likes) || 0;
+  const localLikes = Number(readFinishedLikes()[project.name]) || 0;
+  return Math.max(remoteLikes, localLikes);
 };
 
-const toggleFinishedLike = (project) => {
+const toggleFinishedLike = async (project) => {
   const likes = readFinishedLikes();
-  likes[project.name] = (Number(likes[project.name]) || 0) + 1;
+  likes[project.name] = getFinishedLikes(project) + 1;
   saveFinishedLikes(likes);
+
+  if (project.id) {
+    try {
+      await fetch(`${finishedApiUrl}/${encodeURIComponent(project.id)}/like`, { method: 'POST' });
+    } catch {
+      // Offline fallback
+    }
+  }
 };
 
 const buildFinishedProjectLikeButton = (project) => {
@@ -318,57 +397,145 @@ const buildFinishedProjectLikeButton = (project) => {
   `;
 };
 
-const deleteFinishedProject = (projectName) => {
-  const updated = readFinishedProjects().filter(
+const deleteFinishedProject = async (projectName, projectId) => {
+  if (projectId) {
+    try {
+      await fetch(`${finishedApiUrl}/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+    } catch {
+      // Offline fallback
+    }
+  }
+
+  const current = await readFinishedProjects();
+  const updated = current.filter(
     (item) => !(item.name === projectName && isOwnedByCurrentUser(item))
   );
-  saveFinishedProjects(updated);
-  renderFinishedProjects();
-  renderHomeFeed();
+  saveFinishedProjectsLocal(updated);
+  await renderFinishedProjects();
+  await renderHomeFeed();
 };
-
 const attachFinishedDeleteHandlers = (root) => {
   if (!root) return;
   root.querySelectorAll('.delete-finished-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      deleteFinishedProject(btn.dataset.name);
+      await deleteFinishedProject(btn.dataset.name, btn.dataset.id);
     });
   });
 };
+
 const attachFinishedProjectLikeHandlers = (root) => {
   if (!root) return;
   root.querySelectorAll('.finished-project-like').forEach((button) => {
-    button.addEventListener('click', (event) => {
+    button.addEventListener('click', async (event) => {
       event.stopPropagation();
       const projectName = button.dataset.projectName;
-      const project = readFinishedProjects().find((item) => (item.name || '') === (projectName || ''));
+      const projects = await readFinishedProjects();
+      const project = projects.find((item) => (item.name || '') === (projectName || ''));
       if (!project) return;
-      toggleFinishedLike(project);
-      renderFinishedProjects();
-      renderHomeFeed();
+      await toggleFinishedLike(project);
+      await renderFinishedProjects();
+      await renderHomeFeed();
     });
   });
 };
 
 const buildFinishedProjectRemovePhotoButton = (project) =>
-  `<button type="button" class="finished-project-remove-photo" data-project-name="${escapeHtml(project.name || '')}">Remove photo</button>`;
+  `<button type="button" class="finished-project-remove-photo delete-project-btn" data-project-name="${escapeHtml(project.name || '')}">Remove photo</button>`;
 
 const attachFinishedProjectRemovePhotoHandlers = (root) => {
   if (!root) return;
   root.querySelectorAll('.finished-project-remove-photo').forEach((button) => {
-    button.addEventListener('click', (event) => {
+    button.addEventListener('click', async (event) => {
       event.stopPropagation();
       const projectName = button.dataset.projectName;
-      const projects = readFinishedProjects().map((project) =>
-        (project.name || '') === (projectName || '') ? { ...project, image: '' } : project
+      const current = await readFinishedProjects();
+      const projects = current.map((project) =>
+        (project.name || '') === (projectName || '') ? { ...project, image: FALLBACK_IMAGE } : project
       );
-      saveFinishedProjects(projects);
-      renderFinishedProjects();
-      renderHomeFeed();
+      saveFinishedProjectsLocal(projects);
+      await renderFinishedProjects();
+      await renderHomeFeed();
     });
   });
 };
+
+const buildFinishedProjectCard = (project) => `
+  <article class="posted-project-card finished-project-card">
+    <div class="finished-project-visual">
+      <img src="${escapeHtml(project.image || FALLBACK_IMAGE)}" alt="${escapeHtml(project.name)}" loading="lazy" decoding="async" />
+    </div>
+    <div class="posted-project-top">
+      <strong>${escapeHtml(project.name)}</strong>
+      <span>${escapeHtml(project.type)}</span>
+    </div>
+    <p>${escapeHtml(project.description)}</p>
+    <div class="project-meta">
+      <span>${escapeHtml(project.timeline)}</span>
+      <span>Engineer: ${escapeHtml(project.engineer || 'ProjectExpert team')}</span>
+    </div>
+    ${project.image && project.image.startsWith('data:') ? buildFinishedProjectRemovePhotoButton(project) : ''}
+    ${buildFinishedProjectLikeButton(project)}
+    ${isOwnedByCurrentUser(project) ? `<button type="button" class="delete-finished-btn" data-id="${escapeHtml(project.id || '')}" data-name="${escapeHtml(project.name || '')}">Delete</button>` : ''}
+  </article>
+`;
+
+const renderHomeFeed = async () => {
+  const homeProjectFeed = document.getElementById('homeProjectFeed');
+  const homeFinishedFeed = document.getElementById('homeFinishedFeed');
+
+  if (homeProjectFeed) {
+    const projects = await readProjects();
+    homeProjectFeed.innerHTML = projects.length
+      ? projects
+          .slice()
+          .reverse()
+          .slice(0, 3)
+          .map((project) => buildRequestCard(project))
+          .join('')
+      : '<div class="empty-projects">No request has been posted yet.</div>';
+  }
+
+  if (homeFinishedFeed) {
+    const finishedProjects = await readFinishedProjects();
+    homeFinishedFeed.innerHTML = finishedProjects.length
+      ? finishedProjects
+          .slice()
+          .reverse()
+          .slice(0, 3)
+          .map((project) => buildFinishedProjectCard(project))
+          .join('')
+      : '<div class="empty-projects">No finished work has been posted yet.</div>';
+  }
+
+  document.querySelectorAll('#homeProjectFeed .request-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      card.classList.toggle('expanded');
+    });
+  });
+
+  attachProjectDeleteHandlers(homeProjectFeed);
+  attachFinishedProjectLikeHandlers(homeFinishedFeed);
+  attachFinishedProjectRemovePhotoHandlers(homeFinishedFeed);
+  attachFinishedDeleteHandlers(homeFinishedFeed);
+};
+
+const renderFinishedProjects = async () => {
+  if (!finishedProjectList) return;
+  const projects = await readFinishedProjects();
+
+  finishedProjectList.innerHTML = projects
+    .slice()
+    .reverse()
+    .map((project) => buildFinishedProjectCard(project))
+    .join('');
+
+  attachFinishedProjectLikeHandlers(finishedProjectList);
+  attachFinishedProjectRemovePhotoHandlers(finishedProjectList);
+  attachFinishedDeleteHandlers(finishedProjectList);
+};
+
+/* --- Engineers (API + Local Fallback) --- */
 
 const readEngineerClicks = () => {
   try {
@@ -387,6 +554,7 @@ const getEngineerClicks = (engineer) => {
   const clicks = Number(readEngineerClicks()[engineer.name]);
   return Number.isFinite(clicks) && clicks > 0 ? clicks : 0;
 };
+
 const recordEngineerClick = (name) => {
   const clicks = readEngineerClicks();
   const count = (Number(clicks[name]) || 0) + 1;
@@ -396,9 +564,8 @@ const recordEngineerClick = (name) => {
 };
 
 const buildEngineerRemovePhotoButton = (engineer) =>
-  `<button type="button" class="engineer-remove-photo" data-engineer-name="${escapeHtml(engineer.name || '')}">Remove photo</button>`;
-
-const attachEngineerRemovePhotoHandlers = async (root) => {
+  `<button type="button" class="engineer-remove-photo delete-project-btn" data-engineer-name="${escapeHtml(engineer.name || '')}">Remove photo</button>`;
+const attachEngineerRemovePhotoHandlers = (root) => {
   if (!root) return;
   root.querySelectorAll('.engineer-remove-photo').forEach((button) => {
     button.addEventListener('click', async (event) => {
@@ -406,7 +573,7 @@ const attachEngineerRemovePhotoHandlers = async (root) => {
       const engineerName = button.dataset.engineerName;
       const engineers = await readEngineers();
       const updated = engineers.map((engineer) =>
-        (engineer.name || '') === (engineerName || '') ? { ...engineer, image: '' } : engineer
+        (engineer.name || '') === (engineerName || '') ? { ...engineer, image: FALLBACK_IMAGE } : engineer
       );
       await saveEngineers(updated);
       await renderEngineers();
@@ -416,18 +583,17 @@ const attachEngineerRemovePhotoHandlers = async (root) => {
 
 const deleteEngineer = async (engineerName) => {
   const saved = JSON.parse(localStorage.getItem(engineerStorageKey) || '[]');
-  const target = saved.find((item) => item.name === engineerName && isOwnedByCurrentUser(item));
-  if (!target) return;
-
-  const updatedLocal = saved.filter((item) => !(item.name === engineerName && isOwnedByCurrentUser(item)));
+  const updatedLocal = saved.filter(
+    (item) => !(item.name === engineerName && isOwnedByCurrentUser(item))
+  );
   localStorage.setItem(engineerStorageKey, JSON.stringify(updatedLocal));
 
   try {
     await fetch(`${engineerApiUrl}/${encodeURIComponent(engineerName)}`, {
       method: 'DELETE',
     });
-  } catch (err) {
-    // Ignore if offline or endpoint not implemented
+  } catch {
+    // Ignore if offline
   }
 
   await renderEngineers();
@@ -443,100 +609,6 @@ const attachEngineerDeleteHandlers = (root) => {
     });
   });
 };
-const renderHomeFeed = () => {
-  const homeProjectFeed = document.getElementById('homeProjectFeed');
-  const homeFinishedFeed = document.getElementById('homeFinishedFeed');
-
-  if (homeProjectFeed) {
-    const projects = readProjects();
-    homeProjectFeed.innerHTML = projects.length
-      ? projects
-          .slice()
-          .reverse()
-          .slice(0, 3)
-          .map((project) => buildRequestCard(project))
-          .join('')
-      : '<div class="empty-projects">No request has been posted yet.</div>';
-  }
-
-  if (homeFinishedFeed) {
-    const finishedProjects = readFinishedProjects();
-    homeFinishedFeed.innerHTML = finishedProjects.length
-      ? finishedProjects
-          .slice()
-          .reverse()
-          .slice(0, 3)
-          .map(
-            (project) => `
-              <article class="posted-project-card finished-project-card">
-                <div class="finished-project-visual">
-                  <img src="${project.image || 'https://unsplash.com'}" alt="${project.name}" loading="lazy" decoding="async" />
-                </div>
-                <div class="posted-project-top">
-                  <strong>${project.name}</strong>
-                  <span>${project.type}</span>
-                </div>
-                <p>${project.description}</p>
-                <div class="project-meta">
-                  <span>${project.timeline}</span>
-                  <span>Engineer: ${project.engineer || 'ProjectExpert team'}</span>
-                </div>
-                ${project.image && project.image.startsWith('data:') ? buildFinishedProjectRemovePhotoButton(project) : ''}
-                ${buildFinishedProjectLikeButton(project)}
-                ${isOwnedByCurrentUser(project) ? `<button type="button" class="delete-finished-btn" data-name="${escapeHtml(project.name || '')}">Delete</button>` : ''}
-              </article>
-            `
-          )
-          .join('')
-      : '<div class="empty-projects">No finished work has been posted yet.</div>';
-  }
-
-  const homeRequestCards = document.querySelectorAll('#homeProjectFeed .request-card');
-  for (const card of homeRequestCards) {
-    card.addEventListener('click', () => {
-      card.classList.toggle('expanded');
-    });
-  }
-  attachProjectDeleteHandlers(homeProjectFeed);
-  attachFinishedProjectLikeHandlers(homeFinishedFeed);
-  attachFinishedProjectRemovePhotoHandlers(homeFinishedFeed);
-  attachFinishedDeleteHandlers(homeFinishedFeed);
-};
-
-const renderFinishedProjects = () => {
-  if (!finishedProjectList) return;
-
-  const projects = readFinishedProjects();
-
-  finishedProjectList.innerHTML = projects
-    .slice()
-    .reverse()
-    .map(
-      (project) => `
-        <article class="posted-project-card finished-project-card">
-          <div class="finished-project-visual">
-            <img src="${project.image || 'https://unsplash.com'}" alt="${project.name}" loading="lazy" decoding="async" />
-          </div>
-          <div class="posted-project-top">
-            <strong>${project.name}</strong>
-            <span>${project.type}</span>
-          </div>
-          <p>${project.description}</p>
-          <div class="project-meta">
-            <span>${project.timeline}</span>
-            <span>Engineer: ${project.engineer || 'ProjectExpert team'}</span>
-          </div>
-          ${project.image && project.image.startsWith('data:') ? buildFinishedProjectRemovePhotoButton(project) : ''}
-          ${buildFinishedProjectLikeButton(project)}
-          ${isOwnedByCurrentUser(project) ? `<button type="button" class="delete-finished-btn" data-name="${escapeHtml(project.name || '')}">Delete</button>` : ''}
-        </article>
-      `
-    )
-    .join('');
-  attachFinishedProjectLikeHandlers(finishedProjectList);
-  attachFinishedProjectRemovePhotoHandlers(finishedProjectList);
-  attachFinishedDeleteHandlers(finishedProjectList);
-};
 
 const readEngineers = async () => {
   try {
@@ -546,24 +618,23 @@ const readEngineers = async () => {
       if (Array.isArray(remoteEngineers) && remoteEngineers.length) {
         const unique = [];
         const seen = new Set();
+        const localSaved = JSON.parse(localStorage.getItem(engineerStorageKey) || '[]');
 
         for (const engineer of [...defaultEngineers, ...remoteEngineers]) {
           const key = `${engineer.name || 'unknown'}|${engineer.specialty || engineer.bio || ''}`.toLowerCase();
           if (!seen.has(key)) {
             seen.add(key);
-            const localSaved = JSON.parse(localStorage.getItem(engineerStorageKey) || '[]');
             const localMatch = Array.isArray(localSaved)
               ? localSaved.find((item) => item.name === engineer.name && item.specialty === engineer.specialty)
               : null;
             unique.push(localMatch?.ownerId ? { ...engineer, ownerId: localMatch.ownerId } : engineer);
           }
         }
-
         return unique;
       }
     }
-  } catch (error) {
-    // Fall through to localStorage when the MySQL API is unavailable.
+  } catch {
+    // Fall through to localStorage
   }
 
   try {
@@ -580,7 +651,6 @@ const readEngineers = async () => {
         unique.push(engineer);
       }
     }
-
     return unique;
   } catch {
     return defaultEngineers;
@@ -589,7 +659,8 @@ const readEngineers = async () => {
 
 const saveEngineers = async (engineers) => {
   const customOnly = (engineers || []).filter(
-    (engineer) => !defaultEngineers.some((sample) => sample.name === engineer.name && sample.specialty === engineer.specialty)
+    (engineer) =>
+      !defaultEngineers.some((sample) => sample.name === engineer.name && sample.specialty === engineer.specialty)
   );
 
   try {
@@ -600,12 +671,13 @@ const saveEngineers = async (engineers) => {
         body: JSON.stringify(customOnly[customOnly.length - 1]),
       });
     }
-  } catch (error) {
-    // Fall back to local browser storage if the MySQL API is not reachable.
+  } catch {
+    // Fall back to local browser storage
   }
 
   localStorage.setItem(engineerStorageKey, JSON.stringify(customOnly));
 };
+
 const syncEngineerTypeButtons = (selectedType = 'all') => {
   const typeButtons = document.querySelectorAll('.type-option');
   const normalizedSelection = selectedType || 'all';
@@ -644,19 +716,21 @@ const populateEngineerTypeOptions = async () => {
   ];
 
   const engineers = await readEngineers();
-  const types = [...new Set([...(engineers.map((engineer) => engineer.specialty).filter(Boolean) || []), ...fallbackTypes])].sort();
+  const types = [
+    ...new Set([...(engineers.map((engineer) => engineer.specialty).filter(Boolean) || []), ...fallbackTypes]),
+  ].sort();
   const currentValue = filter.value || 'all';
   const allOptions = ['all', ...types];
 
   filter.innerHTML = allOptions
-    .map((type) => `<option value="${type}">${type === 'all' ? 'All types' : type}</option>`)
+    .map((type) => `<option value="${escapeHtml(type)}">${type === 'all' ? 'All types' : escapeHtml(type)}</option>`)
     .join('');
 
   typeMenu.innerHTML = allOptions
     .map((type) => {
-      const label = type === 'all' ? 'All types' : type;
+      const label = type === 'all' ? 'All types' : escapeHtml(type);
       const isActive = type === (allOptions.includes(currentValue) ? currentValue : 'all');
-      return `<button type="button" class="type-option ${isActive ? 'active' : ''}" data-type="${type}" aria-pressed="${isActive}">${label}</button>`;
+      return `<button type="button" class="type-option ${isActive ? 'active' : ''}" data-type="${escapeHtml(type)}" aria-pressed="${isActive}">${label}</button>`;
     })
     .join('');
 
@@ -677,8 +751,7 @@ const populateEngineerTypeOptions = async () => {
 
   toggleButton.addEventListener('click', (event) => {
     event.stopPropagation();
-    const isOpen = typeMenu.classList.contains('open');
-    if (isOpen) {
+    if (typeMenu.classList.contains('open')) {
       closeEngineerTypeMenu();
     } else {
       openEngineerTypeMenu();
@@ -693,7 +766,6 @@ const populateEngineerTypeOptions = async () => {
       renderEngineers(engineerSearchInput?.value || '', filter.value);
     });
   });
-
   document.addEventListener('click', (event) => {
     if (!typeMenu.contains(event.target) && !toggleButton.contains(event.target)) {
       closeEngineerTypeMenu();
@@ -703,32 +775,37 @@ const populateEngineerTypeOptions = async () => {
   closeEngineerTypeMenu();
 };
 
-const buildExpertCard = (engineer) => `
-  <article class="expert-card" data-engineer-name="${engineer.name}" data-whatsapp="${engineer.whatsapp || ''}" data-skype="${engineer.skype || ''}" data-phone="${engineer.phone || ''}">
-    <img src="${engineer.image}" alt="${engineer.name}" width="800" height="900" loading="lazy" decoding="async" />
-    <div class="expert-body">
-      <div class="expert-topline">
-        <h3>${engineer.name}</h3>
-      </div>
-      <p>${engineer.specialty || engineer.bio || 'Engineering specialist'}</p>
-      <p class="engineer-clicks">Clicks: ${getEngineerClicks(engineer)}</p>
-      ${engineer.image && engineer.image.startsWith('data:') ? buildEngineerRemovePhotoButton(engineer) : ''}
-      ${isOwnedByCurrentUser(engineer) ? `<button type="button" class="delete-engineer-btn" data-name="${escapeHtml(engineer.name || '')}">Delete</button>` : ''}
-      <div class="skill-tags">
-        ${(engineer.skills || []).map((skill) => `<span>${skill}</span>`).join('')}
-      </div>
-      ${engineer.school ? `<p class="engineer-school">School: ${engineer.school}</p>` : ''}
-      <div class="expert-contact">
-        <span>Contact ${engineer.name}</span>
-        <div class="expert-contact-actions">
-          <a href="https://wa.me{(engineer.whatsapp || '').replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-          <a href="skype:${engineer.skype || 'live:projectexpert'}?call" target="_blank" rel="noopener noreferrer">Skype</a>
-          <a href="tel:${(engineer.phone || engineer.whatsapp || '').replace(/\s+/g, '')}" target="_blank" rel="noopener noreferrer">Call</a>
+const buildExpertCard = (engineer) => {
+  const whatsappDigits = (engineer.whatsapp || '').replace(/\D/g, '');
+  const whatsappHref = whatsappDigits ? `https://wa.me{whatsappDigits}` : 'https://wa.me';
+
+  return `
+    <article class="expert-card" data-engineer-name="${escapeHtml(engineer.name)}" data-whatsapp="${escapeHtml(engineer.whatsapp || '')}" data-skype="${escapeHtml(engineer.skype || '')}" data-phone="${escapeHtml(engineer.phone || '')}">
+      <img src="${escapeHtml(engineer.image || FALLBACK_IMAGE)}" alt="${escapeHtml(engineer.name)}" width="800" height="900" loading="lazy" decoding="async" />
+      <div class="expert-body">
+        <div class="expert-topline">
+          <h3>${escapeHtml(engineer.name)}</h3>
+        </div>
+        <p>${escapeHtml(engineer.specialty || engineer.bio || 'Engineering specialist')}</p>
+        <p class="engineer-clicks">Clicks: ${getEngineerClicks(engineer)}</p>
+        ${engineer.image && engineer.image.startsWith('data:') ? buildEngineerRemovePhotoButton(engineer) : ''}
+        ${isOwnedByCurrentUser(engineer) ? `<button type="button" class="delete-engineer-btn" data-name="${escapeHtml(engineer.name || '')}">Delete</button>` : ''}
+        <div class="skill-tags">
+          ${(engineer.skills || []).map((skill) => `<span>${escapeHtml(skill)}</span>`).join('')}
+        </div>
+        ${engineer.school ? `<p class="engineer-school">School: ${escapeHtml(engineer.school)}</p>` : ''}
+        <div class="expert-contact">
+          <span>Contact ${escapeHtml(engineer.name)}</span>
+          <div class="expert-contact-actions">
+            <a href="${whatsappHref}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+            <a href="skype:${encodeURIComponent(engineer.skype || 'live:projectexpert')}?call" target="_blank" rel="noopener noreferrer">Skype</a>
+            <a href="tel:${escapeHtml((engineer.phone || engineer.whatsapp || '').replace(/\s+/g, ''))}" target="_blank" rel="noopener noreferrer">Call</a>
+          </div>
         </div>
       </div>
-    </div>
-  </article>
-`;
+    </article>
+  `;
+};
 
 const renderEngineers = async (query = '', selectedType = 'all') => {
   if (!expertGrid) return;
@@ -753,10 +830,10 @@ const renderEngineers = async (query = '', selectedType = 'all') => {
     expertGrid.innerHTML = '<div class="empty-projects">No engineers match your search.</div>';
     return;
   }
+
   expertGrid.innerHTML = filteredEngineers.slice().reverse().map((engineer) => buildExpertCard(engineer)).join('');
 
-  const expertCards = document.querySelectorAll('.expert-card');
-  expertCards.forEach((card) => {
+  document.querySelectorAll('.expert-card').forEach((card) => {
     card.addEventListener('click', () => {
       card.classList.toggle('expanded');
       const engineerName = card.dataset.engineerName;
@@ -767,9 +844,12 @@ const renderEngineers = async (query = '', selectedType = 'all') => {
       }
     });
   });
+
   attachEngineerRemovePhotoHandlers(expertGrid);
   attachEngineerDeleteHandlers(expertGrid);
 };
+
+/* --- Form Handlers & File Readers --- */
 
 const readFileAsDataUrl = (file) =>
   new Promise((resolve, reject) => {
@@ -788,7 +868,6 @@ if (finishedRemoveImageBtn && finishedImageInput) {
     if (finishedProjectStatus) finishedProjectStatus.textContent = '';
   });
 }
-
 if (finishedFormToggle && finishedProjectForm) {
   finishedFormToggle.addEventListener('click', () => {
     const isHidden = finishedProjectForm.classList.toggle('hidden');
@@ -807,9 +886,11 @@ if (finishedProjectForm) {
     const timeline = document.getElementById('finishedProjectTimeline')?.value?.trim();
     const type = document.getElementById('finishedProjectType')?.value || 'Prototype';
     const finishedImageFile = finishedImageInput?.files?.[0];
-    const image = finishedImageFile ? await readFileAsDataUrl(finishedImageFile) : finishedImageInput?.value?.trim() || '';
+    const image = finishedImageFile
+      ? await readFileAsDataUrl(finishedImageFile)
+      : finishedImageInput?.value?.trim() || FALLBACK_IMAGE;
 
-    if (!name || !engineer || !description || !timeline || !image) {
+    if (!name || !engineer || !description || !timeline) {
       if (finishedProjectStatus) {
         finishedProjectStatus.textContent = 'Please complete every finished-project field.';
         finishedProjectStatus.classList.add('error');
@@ -817,20 +898,35 @@ if (finishedProjectForm) {
       return;
     }
 
-    const projects = readFinishedProjects();
-    projects.push({
+    const newFinished = {
       name,
       engineer,
       description,
       timeline,
       type,
       image,
+      likes: 0,
       ownerId: getCurrentOwnerId(),
-    });
+    };
 
-    saveFinishedProjects(projects);
-    renderFinishedProjects();
-    renderHomeFeed();
+    try {
+      const response = await fetch(finishedApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newFinished),
+      });
+      if (response.ok) {
+        const resData = await response.json();
+        newFinished.id = resData.id;
+      }
+    } catch {
+      // Offline fallback
+    }
+    const projects = await readFinishedProjects();
+    projects.push(newFinished);
+    saveFinishedProjectsLocal(projects);
+    await renderFinishedProjects();
+    await renderHomeFeed();
 
     if (finishedProjectStatus) {
       finishedProjectStatus.textContent = 'Finished project saved successfully.';
@@ -853,6 +949,7 @@ if (engineerFormToggle && engineerForm) {
     engineerFormToggle.textContent = isHidden ? 'Add profile' : 'Close form';
   });
 }
+
 const engineerImageInput = document.getElementById('engineerImage');
 const engineerRemoveImageBtn = document.getElementById('engineerRemoveImage');
 
@@ -876,9 +973,11 @@ if (engineerForm) {
     const skype = document.getElementById('engineerSkype')?.value?.trim();
     const phone = document.getElementById('engineerPhone')?.value?.trim();
     const engineerImageFile = engineerImageInput?.files?.[0];
-    const image = engineerImageFile ? await readFileAsDataUrl(engineerImageFile) : engineerImageInput?.value?.trim() || '';
+    const image = engineerImageFile
+      ? await readFileAsDataUrl(engineerImageFile)
+      : engineerImageInput?.value?.trim() || FALLBACK_IMAGE;
 
-    if (!name || !specialty || !school || !bio || !skillsInput || !whatsapp || !skype || !phone || !image) {
+    if (!name || !specialty || !school || !bio || !skillsInput || !whatsapp || !skype || !phone) {
       if (engineerStatus) {
         engineerStatus.textContent = 'Please complete every engineer field, including contact details.';
         engineerStatus.classList.add('error');
@@ -923,7 +1022,6 @@ if (engineerForm) {
 const engineerSearchInput = document.getElementById('engineerSearch');
 const engineerTypeFilter = document.getElementById('engineerTypeFilter');
 const searchEngineerButton = document.querySelector('.search-engineers-btn');
-
 if (engineerSearchInput && searchEngineerButton && engineerTypeFilter) {
   const applyEngineerSearch = () => {
     renderEngineers(engineerSearchInput.value, engineerTypeFilter.value);
@@ -938,7 +1036,6 @@ for (const button of tabButtons) {
   button.addEventListener('click', () => {
     const selectedTab = button?.dataset?.tab;
     if (!selectedTab) return;
-
     activateTab(selectedTab);
   });
 }
@@ -953,9 +1050,7 @@ for (const trigger of postProjectTriggers) {
   trigger.addEventListener('click', () => {
     activateTab('requests');
     const requestsTab = document.querySelector('[data-tab="requests"]');
-    if (requestsTab) {
-      requestsTab.classList.add('active');
-    }
+    if (requestsTab) requestsTab.classList.add('active');
   });
 }
 
@@ -963,16 +1058,13 @@ for (const trigger of contactEngineerTriggers) {
   trigger.addEventListener('click', () => {
     activateTab('experts');
     const expertsTab = document.querySelector('[data-tab="experts"]');
-    if (expertsTab) {
-      expertsTab.classList.add('active');
-    }
+    if (expertsTab) expertsTab.classList.add('active');
   });
 }
 
 for (const pill of choicePills) {
   pill.addEventListener('click', () => {
     if (!pill.parentElement) return;
-
     pill.parentElement.querySelectorAll('.choice-pill').forEach((item) => {
       item.classList.toggle('active', item === pill);
     });
@@ -980,7 +1072,7 @@ for (const pill of choicePills) {
 }
 
 if (projectForm) {
-  projectForm.addEventListener('submit', (event) => {
+  projectForm.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const projectName = document.getElementById('projectName')?.value?.trim();
@@ -996,8 +1088,7 @@ if (projectForm) {
       return;
     }
 
-    const projects = readProjects();
-    projects.push({
+    const newProject = {
       name: projectName,
       description,
       timeline,
@@ -1005,11 +1096,11 @@ if (projectForm) {
       type: getSelectedProjectType(),
       engineerCount: 0,
       ownerId: getCurrentOwnerId(),
-    });
+    };
 
-    saveProjects(projects);
-    renderProjects();
-    renderHomeFeed();
+    await createProjectRecord(newProject);
+    await renderProjects();
+    await renderHomeFeed();
 
     if (projectStatus) {
       projectStatus.textContent = 'Project posted successfully. Experts can now review it.';
@@ -1017,13 +1108,53 @@ if (projectForm) {
     }
 
     activateTab('requests');
-
     projectForm.reset();
     const firstPill = document.querySelector('.choice-pill');
     if (firstPill) {
       document.querySelectorAll('.choice-pill').forEach((item) => {
         item.classList.toggle('active', item === firstPill);
       });
+    }
+  });
+}
+
+/* --- Login & Signup Handler --- */
+
+const loginForm = document.querySelector('.login-form');
+if (loginForm) {
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const inputs = loginForm.querySelectorAll('input[type="email"], input[type="password"], input[type="text"]');
+    const emailInput = loginForm.querySelector('input[type="email"]');
+    const passwordInput = loginForm.querySelector('input[type="password"]');
+    const email = emailInput?.value?.trim();
+    const password = passwordInput?.value || '';
+
+    if (!email || !password) return;
+
+    try {
+      const response = await fetch(loginApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem(userSessionKey, JSON.stringify(data));
+        localStorage.setItem(ownerStorageKey, `user_${data.id}`);
+        alert(`Welcome back, ${data.full_name}!`);
+        activateTab('home');
+        await renderProjects();
+        await renderFinishedProjects();
+        await renderEngineers();
+        await renderHomeFeed();
+        renderHomeEngineers();
+      } else {
+        alert(data.error || 'Sign in failed. Please check your credentials.');
+      }
+    } catch {
+      alert('Unable to reach authentication server right now.');
     }
   });
 }
@@ -1069,7 +1200,3 @@ populateEngineerTypeOptions();
 renderEngineers();
 renderHomeFeed();
 renderHomeEngineers();
-
-saveFinishedProjects(readFinishedProjects().filter(p => (p.name || '').toLowerCase() !== 'smart lighting project' && (p.engineer || '').toLowerCase() !== 'ime henry')); renderFinishedProjects(); renderHomeFeed();
-
-
