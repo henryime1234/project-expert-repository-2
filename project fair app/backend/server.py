@@ -25,13 +25,14 @@ else:
 
 DB_CONFIG = {
     'host': os.getenv('DB_HOST') or os.getenv('MYSQL_HOST', 'localhost'),
-    'port': int(os.getenv('DB_PORT') or os.getenv('MYSQL_PORT', '3306')),
-    'user': os.getenv('DB_USER') or os.getenv('MYSQL_USER', 'root'),
+    'port': int(os.getenv('DB_PORT') or os.getenv('MYSQL_PORT', '15878')),
+    'user': os.getenv('DB_USER') or os.getenv('MYSQL_USER', 'avnadmin'),
     'password': os.getenv('DB_PASSWORD') or os.getenv('MYSQL_PASSWORD', ''),
-    'database': os.getenv('DB_NAME') or os.getenv('MYSQL_DATABASE', 'projectexpert'),
+    'database': os.getenv('DB_NAME') or os.getenv('MYSQL_DATABASE', 'defaultdb'),
     'charset': 'utf8mb4',
     'cursorclass': pymysql.cursors.DictCursor,
     'autocommit': True,
+    'ssl': {'ssl': {}},
 }
 
 USER_DB_NAME = os.getenv('MYSQL_USER_DATABASE', DB_CONFIG['database'])
