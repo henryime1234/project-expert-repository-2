@@ -96,6 +96,7 @@ const defaultFinishedProjects = [
     likes: 0,
   },
 ];
+
 const defaultEngineers = [
   {
     name: 'Amina Okafor',
@@ -203,6 +204,7 @@ const readProjects = async () => {
     return [];
   }
 };
+
 const createProjectRecord = async (project) => {
   try {
     const response = await fetch(projectsApiUrl, {
@@ -231,7 +233,6 @@ const deleteProject = async (projectName, projectId) => {
       // Ignore if offline
     }
   }
-
   const local = JSON.parse(localStorage.getItem(storageKey) || '[]');
   const updated = local.filter(
     (item) => !(item.name === projectName && isOwnedByCurrentUser(item))
@@ -273,8 +274,8 @@ const buildRequestCard = (project) => {
         <span class="project-taken-count">${engineerLabel}</span>
       </div>
       <div class="request-contact">
-        <a href="${whatsappHref}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-        <a href="skype:${encodeURIComponent(project.skype || 'live:projectexpert')}?call" target="_blank" rel="noopener noreferrer">Skype video call</a>
+        <a href="${whatsappHref}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">WhatsApp</a>
+        <a href="skype:${encodeURIComponent(project.skype || 'live:projectexpert')}?call" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Skype video call</a>
       </div>
       ${deleteBtn}
     </article>
@@ -362,6 +363,7 @@ const readFinishedLikes = () => {
     return {};
   }
 };
+
 const saveFinishedLikes = (likes) => {
   localStorage.setItem(finishedLikesStorageKey, JSON.stringify(likes));
 };
@@ -414,6 +416,7 @@ const deleteFinishedProject = async (projectName, projectId) => {
   await renderFinishedProjects();
   await renderHomeFeed();
 };
+
 const attachFinishedDeleteHandlers = (root) => {
   if (!root) return;
   root.querySelectorAll('.delete-finished-btn').forEach((btn) => {
@@ -463,7 +466,7 @@ const attachFinishedProjectRemovePhotoHandlers = (root) => {
 const buildFinishedProjectCard = (project) => `
   <article class="posted-project-card finished-project-card">
     <div class="finished-project-visual">
-      <img src="${escapeHtml(project.image || FALLBACK_IMAGE)}" alt="${escapeHtml(project.name)}" loading="lazy" decoding="async" />
+      <img src="${escapeHtml(project.image || FALLBACK_IMAGE)}" alt="${escapeHtml(project.name)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}';" />
     </div>
     <div class="posted-project-top">
       <strong>${escapeHtml(project.name)}</strong>
@@ -545,7 +548,6 @@ const readEngineerClicks = () => {
     return {};
   }
 };
-
 const saveEngineerClicks = (clicks) => {
   localStorage.setItem(engineerClicksStorageKey, JSON.stringify(clicks));
 };
@@ -565,6 +567,7 @@ const recordEngineerClick = (name) => {
 
 const buildEngineerRemovePhotoButton = (engineer) =>
   `<button type="button" class="engineer-remove-photo delete-project-btn" data-engineer-name="${escapeHtml(engineer.name || '')}">Remove photo</button>`;
+
 const attachEngineerRemovePhotoHandlers = (root) => {
   if (!root) return;
   root.querySelectorAll('.engineer-remove-photo').forEach((button) => {
@@ -577,6 +580,7 @@ const attachEngineerRemovePhotoHandlers = (root) => {
       );
       await saveEngineers(updated);
       await renderEngineers();
+      renderHomeEngineers();
     });
   });
 };
@@ -700,6 +704,7 @@ const syncEngineerTypeButtons = (selectedType = 'all') => {
   }
 };
 
+let isEngineerTypeMenuBound = false;
 const populateEngineerTypeOptions = async () => {
   const filter = document.getElementById('engineerTypeFilter');
   const typeMenu = document.getElementById('engineerTypeMenu');
@@ -749,14 +754,24 @@ const populateEngineerTypeOptions = async () => {
     toggleButton.setAttribute('aria-expanded', 'true');
   };
 
-  toggleButton.addEventListener('click', (event) => {
-    event.stopPropagation();
-    if (typeMenu.classList.contains('open')) {
-      closeEngineerTypeMenu();
-    } else {
-      openEngineerTypeMenu();
-    }
-  });
+  if (!isEngineerTypeMenuBound) {
+    isEngineerTypeMenuBound = true;
+
+    toggleButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (typeMenu.classList.contains('open')) {
+        closeEngineerTypeMenu();
+      } else {
+        openEngineerTypeMenu();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!typeMenu.contains(event.target) && !toggleButton.contains(event.target)) {
+        closeEngineerTypeMenu();
+      }
+    });
+  }
 
   typeMenu.querySelectorAll('.type-option').forEach((button) => {
     button.addEventListener('click', () => {
@@ -766,22 +781,16 @@ const populateEngineerTypeOptions = async () => {
       renderEngineers(engineerSearchInput?.value || '', filter.value);
     });
   });
-  document.addEventListener('click', (event) => {
-    if (!typeMenu.contains(event.target) && !toggleButton.contains(event.target)) {
-      closeEngineerTypeMenu();
-    }
-  });
 
   closeEngineerTypeMenu();
 };
-
 const buildExpertCard = (engineer) => {
   const whatsappDigits = (engineer.whatsapp || '').replace(/\D/g, '');
   const whatsappHref = whatsappDigits ? `https://wa.me{whatsappDigits}` : 'https://wa.me';
 
   return `
     <article class="expert-card" data-engineer-name="${escapeHtml(engineer.name)}" data-whatsapp="${escapeHtml(engineer.whatsapp || '')}" data-skype="${escapeHtml(engineer.skype || '')}" data-phone="${escapeHtml(engineer.phone || '')}">
-      <img src="${escapeHtml(engineer.image || FALLBACK_IMAGE)}" alt="${escapeHtml(engineer.name)}" width="800" height="900" loading="lazy" decoding="async" />
+      <img src="${escapeHtml(engineer.image || FALLBACK_IMAGE)}" alt="${escapeHtml(engineer.name)}" width="800" height="900" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}';" />
       <div class="expert-body">
         <div class="expert-topline">
           <h3>${escapeHtml(engineer.name)}</h3>
@@ -797,9 +806,9 @@ const buildExpertCard = (engineer) => {
         <div class="expert-contact">
           <span>Contact ${escapeHtml(engineer.name)}</span>
           <div class="expert-contact-actions">
-            <a href="${whatsappHref}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-            <a href="skype:${encodeURIComponent(engineer.skype || 'live:projectexpert')}?call" target="_blank" rel="noopener noreferrer">Skype</a>
-            <a href="tel:${escapeHtml((engineer.phone || engineer.whatsapp || '').replace(/\s+/g, ''))}" target="_blank" rel="noopener noreferrer">Call</a>
+            <a href="${whatsappHref}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">WhatsApp</a>
+            <a href="skype:${encodeURIComponent(engineer.skype || 'live:projectexpert')}?call" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Skype</a>
+            <a href="tel:${escapeHtml((engineer.phone || engineer.whatsapp || '').replace(/\s+/g, ''))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Call</a>
           </div>
         </div>
       </div>
@@ -833,7 +842,7 @@ const renderEngineers = async (query = '', selectedType = 'all') => {
 
   expertGrid.innerHTML = filteredEngineers.slice().reverse().map((engineer) => buildExpertCard(engineer)).join('');
 
-  document.querySelectorAll('.expert-card').forEach((card) => {
+  document.querySelectorAll('#expertGrid .expert-card').forEach((card) => {
     card.addEventListener('click', () => {
       card.classList.toggle('expanded');
       const engineerName = card.dataset.engineerName;
@@ -868,6 +877,7 @@ if (finishedRemoveImageBtn && finishedImageInput) {
     if (finishedProjectStatus) finishedProjectStatus.textContent = '';
   });
 }
+
 if (finishedFormToggle && finishedProjectForm) {
   finishedFormToggle.addEventListener('click', () => {
     const isHidden = finishedProjectForm.classList.toggle('hidden');
@@ -922,6 +932,7 @@ if (finishedProjectForm) {
     } catch {
       // Offline fallback
     }
+
     const projects = await readFinishedProjects();
     projects.push(newFinished);
     saveFinishedProjectsLocal(projects);
@@ -932,13 +943,17 @@ if (finishedProjectForm) {
       finishedProjectStatus.textContent = 'Finished project saved successfully.';
       finishedProjectStatus.classList.remove('error');
     }
-
     finishedProjectForm.reset();
-    document.getElementById('finishedProjectTimeline').value = 'Completed in 6 weeks';
-    document.getElementById('finishedProjectType').value = 'Prototype';
+    const timelineInput = document.getElementById('finishedProjectTimeline');
+    const typeInput = document.getElementById('finishedProjectType');
+    if (timelineInput) timelineInput.value = 'Completed in 6 weeks';
+    if (typeInput) typeInput.value = 'Prototype';
+
     finishedProjectForm.classList.add('hidden');
-    finishedFormToggle.setAttribute('aria-expanded', 'false');
-    finishedFormToggle.textContent = 'Add finished project';
+    if (finishedFormToggle) {
+      finishedFormToggle.setAttribute('aria-expanded', 'false');
+      finishedFormToggle.textContent = 'Add finished project';
+    }
   });
 }
 
@@ -972,7 +987,7 @@ if (engineerForm) {
     const whatsapp = document.getElementById('engineerWhatsapp')?.value?.trim();
     const skype = document.getElementById('engineerSkype')?.value?.trim();
     const phone = document.getElementById('engineerPhone')?.value?.trim();
-    const engineerImageFile = engineerImageInput?.files?.[0];
+    const engineerImageFile = engineerImageInput?.files?.;
     const image = engineerImageFile
       ? await readFileAsDataUrl(engineerImageFile)
       : engineerImageInput?.value?.trim() || FALLBACK_IMAGE;
@@ -1004,9 +1019,9 @@ if (engineerForm) {
       ownerId: getCurrentOwnerId(),
     });
     await saveEngineers(engineers);
+    await populateEngineerTypeOptions();
     await renderEngineers();
     renderHomeEngineers();
-
     if (engineerStatus) {
       engineerStatus.textContent = 'Engineer saved successfully.';
       engineerStatus.classList.remove('error');
@@ -1014,14 +1029,17 @@ if (engineerForm) {
 
     engineerForm.reset();
     engineerForm.classList.add('hidden');
-    engineerFormToggle.setAttribute('aria-expanded', 'false');
-    engineerFormToggle.textContent = 'Add profile';
+    if (engineerFormToggle) {
+      engineerFormToggle.setAttribute('aria-expanded', 'false');
+      engineerFormToggle.textContent = 'Add profile';
+    }
   });
 }
 
 const engineerSearchInput = document.getElementById('engineerSearch');
 const engineerTypeFilter = document.getElementById('engineerTypeFilter');
 const searchEngineerButton = document.querySelector('.search-engineers-btn');
+
 if (engineerSearchInput && searchEngineerButton && engineerTypeFilter) {
   const applyEngineerSearch = () => {
     renderEngineers(engineerSearchInput.value, engineerTypeFilter.value);
@@ -1087,7 +1105,6 @@ if (projectForm) {
       }
       return;
     }
-
     const newProject = {
       name: projectName,
       description,
@@ -1124,7 +1141,6 @@ const loginForm = document.querySelector('.login-form');
 if (loginForm) {
   loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const inputs = loginForm.querySelectorAll('input[type="email"], input[type="password"], input[type="text"]');
     const emailInput = loginForm.querySelector('input[type="email"]');
     const passwordInput = loginForm.querySelector('input[type="password"]');
     const email = emailInput?.value?.trim();
